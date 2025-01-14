@@ -1,40 +1,41 @@
+import os
 import json
 import requests
 import boto3
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 def lambda_handler(event, context):
-    # Define the NBA API endpoint for teams
-    url = "https://data.nba.net/data/10s/prod/v1/2023/teams.json"
-    
-    # Make a GET request to the NBA API
-    response = requests.get(url)
+    # Get environment variables
+    api_key = os.getenv("NBA_API_KEY")
+    sns_topic_arn = os.getenv("SNS_TOPIC_ARN")
+    sns_client = boto3.client("sns")
 
-    # Check if the request was successful
+    # NBA API URL
+    nba_api_url = "https://www.balldontlie.io/api/v1/games"
+    response = requests.get(nba_api_url)
+
     if response.status_code == 200:
-        # Parse the JSON data
         data = response.json()
-        
-        # Extract team information
-        teams = data.get('league', {}).get('standard', [])
-        team_list = [{"fullName": team['fullName'], "abbreviation": team['tricode']} for team in teams]
-        
-        # Create the message
-        message = "NBA Teams:\n" + "\n".join([f"{team['fullName']} ({team['abbreviation']})" for team in team_list])
-
-        # Send notification via SNS
-        sns = boto3.client('sns')
-        sns.publish(
-            TopicArn='arn:aws:sns:your-region:your-account-id:NBAUpdates', # Replace with your SNS Topic ARN
-            Message=message,
-            Subject='NBA Team Updates'
+        sns_client.publish(
+            TopicArn=sns_topic_arn,
+            Message='Fetched NBA data successfully!',
+            Subject='NBA Data Alert'
         )
-        
+        print(json.dumps(data, indent=4))  # Log the raw data for debugging
         return {
             'statusCode': 200,
-            'body': json.dumps("Notification sent successfully!")
+            'body': json.dumps('Data fetched successfully!')
         }
     else:
+        sns_client.publish(
+            TopicArn=sns_topic_arn,
+            Message='Failed to fetch NBA data!',
+            Subject='NBA Data Fetch Error'
+        )
         return {
             'statusCode': response.status_code,
-            'body': json.dumps({"error": "Failed to retrieve data"})
+            'body': json.dumps('Error fetching data')
         }
