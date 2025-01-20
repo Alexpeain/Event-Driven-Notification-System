@@ -1,66 +1,77 @@
 import os
 import json
-import requests
 import boto3
+import urllib.request
 from datetime import datetime, timedelta
-from pytz import timezone
 from dotenv import load_dotenv
 
+"""
+Remove all dotenv and os.getenv when upload to lambda function
+in AWS have their own variables environment
+"""
 # Load environment variables from .env file
 load_dotenv()
 
-def format_game_data(game):
-    home_team = game['home_team']['full_name']
-    visitor_team = game['visitor_team']['full_name']
-    status = "Scheduled" if game['status'] == "Scheduled" else game['status']
-    home_score = game['home_team_score']
-    visitor_score = game['visitor_team_score']
-    start_time_utc = datetime.strptime(game['date'], "%Y-%m-%dT%H:%M:%S.%fZ")
-    
+# Ensure AWS credentials are loaded
+aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
+aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+region_name = os.getenv("AWS_REGION", "us-east-1")
+sns_topic_arn = os.getenv("SNS_TOPIC_ARN")
+sports_api_key = os.getenv("NBA_API_KEY")
+
+def format_game_summary(game):
+    home_team = game["HomeTeam"]
+    away_team = game["AwayTeam"]
+    status = game["Status"]
+    home_score = game["HomeTeamScore"]
+    away_score = game["AwayTeamScore"]
+    start_time_utc = datetime.strptime(game["DateTimeUTC"], "%Y-%m-%dT%H:%M:%S")
+
     # Convert start time to Myanmar Time (UTC+6:30)
-    myanmar_tz = timezone("Asia/Yangon")
     start_time_mst = start_time_utc + timedelta(hours=6, minutes=30)
     start_time_str = start_time_mst.strftime("%Y-%m-%d %H:%M:%S")
-    
+
+    summary = (
+        f"🏀 **Game Summary** 🏀\n"
+        f"**Status**: {status}\n"
+        f"**Matchup**: {away_team} vs {home_team}\n"
+        f"**Start Time (Myanmar)**: {start_time_str}\n"
+    )
     if status == "Final":
-        return (
-            f"Game Status: {status}\n"
-            f"{visitor_team} vs {home_team}\n"
-            f"Final Score: {visitor_score}-{home_score}\n"
-            f"Start Time (Myanmar): {start_time_str}\n"
-        )
-    elif status == "Scheduled":
-        return (
-            f"Game Status: {status}\n"
-            f"{visitor_team} vs {home_team}\n"
-            f"Start Time (Myanmar): {start_time_str}\n"
-        )
-    else:
-        return (
-            f"Game Status: In Progress\n"
-            f"{visitor_team} vs {home_team}\n"
-            f"Current Score: {visitor_score}-{home_score}\n"
-            f"Start Time (Myanmar): {start_time_str}\n"
-        )
+        summary += f"**Final Score**: {away_score} - {home_score}\n"
+    elif status == "In Progress":
+        summary += f"**Current Score**: {away_score} - {home_score}\n"
+    return summary
+
+def fetch_games():
+    date = datetime.utcnow().strftime('%Y-%m-%d')
+    url = f"https://api.sportsdata.io/v3/nba/scores/json/GamesByDate/{date}?key={sports_api_key}"
+    
+    request = urllib.request.Request(url)
+    request.add_header('Ocp-Apim-Subscription-Key', sports_api_key)
+
+    try:
+        with urllib.request.urlopen(request) as response:
+            data = response.read().decode()
+            return json.loads(data)
+    except urllib.error.HTTPError as e:
+        print(f"HTTPError: {e.code} - {e.reason}")
+        return []
+    except urllib.error.URLError as e:
+        print(f"URLError: {e.reason}")
+        return []
 
 def lambda_handler(event, context):
-    # Get environment variables
-    sns_topic_arn = os.getenv("SNS_TOPIC_ARN")
-    sns_client = boto3.client("sns")
+    # Initialize the SNS client with credentials
+    sns_client = boto3.client(
+        "sns",
+        region_name=region_name,
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key
+    )
     
-    # Today's date in UTC
-    utc_today = datetime.utcnow().date()
-    
-    # Fetch games for today from balldontlie API
-    api_url = f"https://www.balldontlie.io/api/v1/games?dates[]={utc_today}"
-    
-    try:
-        response = requests.get(api_url)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        games = response.json().get("data", [])
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching data: {e}")
-        return {"statusCode": 500, "body": "Error fetching game data"}
+    # Fetch game data from the sports API
+    games = fetch_games()
     
     if not games:
         sns_client.publish(
@@ -71,8 +82,12 @@ def lambda_handler(event, context):
         return {"statusCode": 200, "body": "No games for today."}
     
     # Format game messages
-    messages = [format_game_data(game) for game in games]
-    final_message = "\n---\n".join(messages)
+    try:
+        messages = [format_game_summary(game) for game in games]
+        final_message = "\n---\n".join(messages)
+    except Exception as e:
+        print(f"Error formatting game data: {e}")
+        return {"statusCode": 500, "body": "Error formatting game data"}
     
     # Publish to SNS
     try:
@@ -87,3 +102,9 @@ def lambda_handler(event, context):
         return {"statusCode": 500, "body": "Error publishing to SNS"}
     
     return {"statusCode": 200, "body": "Game updates sent successfully."}
+
+# Debugging: Run the function locally (you can comment this out when deploying to Lambda)
+if __name__ == "__main__":
+    event = {"game": "Test Event"}
+    context = {}
+    lambda_handler(event, context)
