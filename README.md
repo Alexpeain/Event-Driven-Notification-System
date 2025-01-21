@@ -31,7 +31,7 @@ This project is an **event-driven notification system** designed to send notific
 
 ### Diagram of Game Days Alert
 
-![Event Driven Architecture](EventDrivenArchitect.drawio.pg)
+![Event Driven Architecture](EventDrivenArchitect.drawio.png)
 
 ## Setup Instructions
 
