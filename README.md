@@ -2,7 +2,7 @@
 
 ### 30 Days of DevOps - Project 2
 
-This project is an **event-driven notification system** designed to send notifications based on real-time game schedules using **AWS Lambda**, **Amazon SNS (Simple Notification Service)**, and **Amazon EventBridge**. The system fetches data from an external API, processes it using AWS Lambda, and sends notifications to subscribers based on the game status.
+This project is an **event-driven notification system** designed to send notifications based on real-time game schedules using **AWS Lambda**, **Amazon SNS (Simple Notification Service)**, **Amazon EventBridge**, and **Amazon DynamoDB**. The system fetches data from an external API, processes it using AWS Lambda, and sends notifications to subscribers based on the game status.
 
 ---
 
@@ -15,14 +15,17 @@ This project is an **event-driven notification system** designed to send notific
     - [Set Up the .env File](#3-set-up-the-env-file)
     - [Set Up the .gitignore File](#4-set-up-the-gitignore-file)
 4. [Features](#features)
-
+    - [AWS Lambda](#aws-lambda)
+    - [Amazon SNS (Simple Notification Service)](#amazon-sns-simple-notification-service)
+    - [Amazon EventBridge](#amazon-eventbridge)
+    - [Amazon DynamoDB](#amazon-dynamodb)
 5. [License](#license)
 
 ---
 
 ## Project Overview
 
-The **Event-Driven-Notification-System** allows users to get notifications about upcoming or in-progress games (e.g., NBA games). It uses **AWS Lambda** for processing, **Amazon SNS** for sending notifications, and **Amazon EventBridge** to schedule events. The system works by fetching data from an external API (e.g., BallDontLie) and formatting it before sending the updates to users via SNS.
+ The **NBA Game Notification System** keeps users updated about NBA games. It utilizes **AWS Lambda** for processing, **Amazon SNS** for sending notifications, **Amazon EventBridge** to schedule events, and **Amazon DynamoDB** for storing game data. It retrieves data from an external sportsdata.io API. The system works by fetching game data, formatting it, and sending timely updates to users via SNS.
 
 ---
 
@@ -49,9 +52,12 @@ cd Event-Driven-Notification-System
 ### 3. Set Up the .env File
 
 ``` bash
-  SECRET_KEY=mysecretkey12345
-  SNS_TOPIC_ARN=arn:aws:sns:your-region:your-account-id:your-topic-name
-  API_KEY=your-api-key-here
+AWS_ACCESS_KEY_ID=your_access_key_id
+AWS_SECRET_ACCESS_KEY=your_secret_access_key
+AWS_REGION=your_aws_region
+SNS_TOPIC_ARN=arn:aws:sns:your-region:your-account-id:your-topic-name
+NBA_API_KEY=your-api-key-here
+DYNAMODB_TABLE_NAME=your_dynamodb_table_name
 
 ```
 ### 4. Set Up the .gitignore File
@@ -73,9 +79,13 @@ venv/
 ## Features
 
 ### AWS Lambda
+AWS Lambda is used to run the code in response to events, such as changes in data or system state. It automatically manages the compute resources required by the code.
 
 ### Amazon SNS (Simple Notification Service)
+Amazon SNS is used to send notifications to subscribers. It supports multiple protocols, including email, SMS, and HTTP/HTTPS endpoints.
 
 ### Amazon EventBridge
+Amazon EventBridge is used to schedule events and trigger the AWS Lambda function at specified times. It allows for creating rules that match incoming events and route them to targets for processing.
 
-
+### Amazon DynamoDB
+Amazon DynamoDB is used to store game data. It is a fully managed NoSQL database service that provides fast and predictable performance with seamless scalability.
