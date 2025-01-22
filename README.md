@@ -19,7 +19,7 @@ This project is an **event-driven notification system** designed to send notific
     - [Amazon SNS (Simple Notification Service)](#amazon-sns-simple-notification-service)
     - [Amazon EventBridge](#amazon-eventbridge)
     - [Amazon DynamoDB](#amazon-dynamodb)
-5. [License](#license)
+
 
 ---
 
